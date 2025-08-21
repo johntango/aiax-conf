@@ -1,0 +1,34 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Interest {
+  id          String   @id @default(cuid())
+  name        String
+  email       String
+  affiliation String?
+  createdAt   DateTime @default(now())
+  notes       String?
+}
+
+model Attendee {
+  id                     String   @id @default(cuid())
+  name                   String
+  email                  String
+  affiliation            String?
+  createdAt              DateTime @default(now())
+  status                 RegistrationStatus @default(PENDING)
+  stripeSessionId        String?  @unique
+  stripePaymentIntentId  String?
+}
+
+enum RegistrationStatus {
+  PENDING
+  PAID
+  CANCELLED
+}
