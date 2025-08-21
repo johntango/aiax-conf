@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 
 export default function Landing() {
   const pathname = usePathname();
-  const title = process.env.NEXT_PUBLIC_SITE_NAME ?? "AI and AX Design Conference";
+  const title = process.env.NEXT_PUBLIC_SITE_NAME ?? "AI/AX Design Conference";
   const dates = process.env.NEXT_PUBLIC_EVENT_DATES ?? "June 24–25, 2026";
   const subtitle = process.env.NEXT_PUBLIC_EVENT_SUBTITLE ?? "Sponsored by the International Conference on Axiomatic Design";
 

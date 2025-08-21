@@ -10,7 +10,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         {/* Navigation Bar */}
         <nav className="navbar navbar-expand-lg navbar-dark bg-dark">
           <div className="container">
-            <Link className="navbar-brand fw-bold" href="/">AI & AX Design</Link>
+            <Link className="navbar-brand fw-bold" href="/">AI/AX Design</Link>
             <div className="collapse navbar-collapse">
               <ul className="navbar-nav ms-auto">
                 <li className="nav-item"><Link className="nav-link" href="/">Home</Link></li>

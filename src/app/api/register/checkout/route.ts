@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
       price_data: {
         currency,
         unit_amount: amount,
-        product_data: { name: "AI & AX Design Conference Registration" }
+        product_data: { name: "AI/AX Design Conference Registration" }
       }
     }],
     metadata: { attendeeId: attendee.id, email }
