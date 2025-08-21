@@ -22,13 +22,9 @@ model Attendee {
   email                  String
   affiliation            String?
   createdAt              DateTime @default(now())
-  status                 RegistrationStatus @default(PENDING)
+  status                 String   @default("PENDING")
   stripeSessionId        String?  @unique
   stripePaymentIntentId  String?
 }
 
-enum RegistrationStatus {
-  PENDING
-  PAID
-  CANCELLED
-}
+
