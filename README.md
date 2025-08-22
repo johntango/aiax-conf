@@ -9,6 +9,7 @@ Type: ALIAS Record | Host: @ | Value:scji18iq.up.railway.app. | TTL: 1/5 minutes
 Use prisma studio to view data
 npx prisma studio
 
+
 Next.js 14 + Prisma (SQLite) + Stripe Checkout.
 Two flows: Register Interest and Paid Registration ($500).
 
