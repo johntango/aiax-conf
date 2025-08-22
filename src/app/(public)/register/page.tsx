@@ -12,14 +12,37 @@ export default function RegisterPaidPage() {
       email: String(formData.get("email")),
       affiliation: String(formData.get("affiliation") || "")
     };
-    const res = await fetch("/api/register/checkout", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
-    });
-    const j = await res.json();
-    if (!res.ok) { setErr(j.error || "Checkout failed"); setLoading(false); return; }
-    window.location.href = j.url;
+
+    try {
+      const res = await fetch("/api/register/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Accept": "application/json" },
+        body: JSON.stringify(payload)
+      });
+
+      const text = await res.text();               // <-- read as text first
+      let data: any = {};
+      try { if (text) data = JSON.parse(text); }   // <-- parse only if present
+      catch { /* keep data as {} */ }
+
+      if (!res.ok) {
+        const msg = data?.error || text || "Checkout failed";
+        setErr(msg);
+        setLoading(false);
+        return;
+      }
+
+      if (!data?.url) {
+        setErr("Checkout session URL missing in response.");
+        setLoading(false);
+        return;
+      }
+
+      window.location.href = data.url;
+    } catch (e: any) {
+      setErr(e?.message || "Network error");
+      setLoading(false);
+    }
   }
 
   return (

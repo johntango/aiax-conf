@@ -8,35 +8,54 @@ const { attendeeSchema } = createValidators();
 const repos = createRepositories(db);
 
 export async function POST(req: NextRequest) {
-  const json = await req.json();
-  const parsed = attendeeSchema.safeParse(json);
-  if (!parsed.success) return NextResponse.json({ error: "Invalid input" }, { status: 400 });
-  const { name, email, affiliation } = parsed.data;
+  try {
+    // Make sure request has JSON; if empty body, this will throw. Catch above.
+    const json = await req.json();
+    const parsed = attendeeSchema.safeParse(json);
+    if (!parsed.success) {
+      return NextResponse.json({ error: "Invalid input" }, { status: 400 });
+    }
+    const { name, email, affiliation } = parsed.data;
 
-  // create attendee as PENDING
-  const attendee = await repos.attendees.create({ name, email, affiliation });
+    // Validate required env
+    if (!process.env.STRIPE_SECRET_KEY) {
+      return NextResponse.json({ error: "Server misconfigured: STRIPE_SECRET_KEY missing" }, { status: 500 });
+    }
 
-  const baseUrl = process.env.APP_BASE_URL || "http://localhost:3000";
-  const priceId = process.env.STRIPE_PRICE_ID;
-  const currency = process.env.STRIPE_CURRENCY || "usd";
-  const amount = Number(process.env.STRIPE_UNIT_AMOUNT || 50000);
+    const baseUrl = process.env.APP_BASE_URL || "http://localhost:3000";
+    const priceId = process.env.STRIPE_PRICE_ID || undefined;
+    const currency = process.env.STRIPE_CURRENCY || "usd";
+    const unit = Number(process.env.STRIPE_UNIT_AMOUNT ?? 50000);
+    if (!Number.isFinite(unit) || unit <= 0) {
+      return NextResponse.json({ error: "Server misconfigured: STRIPE_UNIT_AMOUNT invalid" }, { status: 500 });
+    }
 
-  const session = await stripe.checkout.sessions.create({
-    mode: "payment",
-    success_url: `${baseUrl}/success`,
-    cancel_url: `${baseUrl}/cancel`,
-    line_items: priceId ? [{ price: priceId, quantity: 1 }] : [{
-      quantity: 1,
-      price_data: {
-        currency,
-        unit_amount: amount,
-        product_data: { name: "AI/AX Design Conference Registration" }
-      }
-    }],
-    metadata: { attendeeId: attendee.id, email }
-  });
+    // Create attendee as PENDING
+    const attendee = await repos.attendees.create({ name, email, affiliation });
 
-  await repos.attendees.linkCheckout(attendee.id, session.id);
+    // Create Stripe Checkout Session
+    const session = await stripe.checkout.sessions.create({
+      mode: "payment",
+      success_url: `${baseUrl}/success`,
+      cancel_url: `${baseUrl}/cancel`,
+      line_items: priceId
+        ? [{ price: priceId, quantity: 1 }]
+        : [{
+            quantity: 1,
+            price_data: {
+              currency,
+              unit_amount: unit,
+              product_data: { name: "AI & AX Design Conference Registration" }
+            }
+          }],
+      metadata: { attendeeId: attendee.id, email }
+    });
 
-  return NextResponse.json({ url: session.url });
+    await repos.attendees.linkCheckout(attendee.id, session.id);
+    return NextResponse.json({ url: session.url }, { status: 200 });
+  } catch (err: any) {
+    // Always return JSON on failure
+    const message = typeof err?.message === "string" ? err.message : "Unexpected server error";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
 }
