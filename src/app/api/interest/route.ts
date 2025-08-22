@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 
 const { interestSchema } = createValidators();
 const repos = createRepositories(db);
+export const runtime = "nodejs";
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
