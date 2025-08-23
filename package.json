@@ -17,7 +17,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "node scripts/migrate-and-start.mjs",
+    "start": "prisma migrate deploy && next start",
     "postinstall": "prisma generate"
   },
   "devDependencies": {
