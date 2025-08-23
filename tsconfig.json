@@ -1,10 +1,9 @@
 {
   "compilerOptions": {
-    /* Paths & module resolution */
     "baseUrl": ".",
     "paths": {
       "@/*": [
-        "src/*"
+        "*"
       ]
     },
     "module": "ESNext",
@@ -14,22 +13,15 @@
     "allowJs": true,
     "resolveJsonModule": true,
     "noEmit": true,
-    /* Strictness & type-checking */
     "strict": true,
-    "exactOptionalPropertyTypes": false,
-    "noUncheckedIndexedAccess": false,
-    "useUnknownInCatchVariables": true,
     "skipLibCheck": true,
-    /* Build ergonomics */
-    "incremental": true,
     "forceConsistentCasingInFileNames": true,
-    /* Source maps (useful for debugging in prod if needed) */
-    "sourceMap": true
+    "incremental": true
   },
   "include": [
     "next-env.d.ts",
-    "src/**/*.ts",
-    "src/**/*.tsx"
+    "**/*.ts",
+    "**/*.tsx"
   ],
   "exclude": [
     "node_modules"
