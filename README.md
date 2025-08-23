@@ -249,5 +249,187 @@ jobs:
 Proprietary — for internal use by the **AI and AX Design Conference** organizing team.
 
 ---
+Awesome—here’s a tight, copy-pasteable guide to test **Stripe webhooks in GitHub Codespaces** with your Next.js (App Router) app.
 
-Would you like me to also include a step-by-step guide for setting up **Stripe webhook testing in Codespaces**?
+---
+
+# Stripe webhook testing in Codespaces
+
+## 0) Prereqs (once)
+
+* Make sure your webhook route exists at: `src/app/api/stripe/webhook/route.ts` and runs on **Node** runtime.
+* Your Codespace dev server is running on **port 3000** and **publicly accessible** (Ports tab → 3000 → Visibility = Public).
+* `APP_BASE_URL` in your `.env.local` (or Codespaces secrets) is your **public Codespaces URL** (e.g., `https://3000-<id>-<org>.githubpreview.dev`).
+
+---
+
+## 1) Install & auth Stripe CLI (in Codespaces terminal)
+
+```bash
+# One-time install
+curl -fsSL https://stripe.dev/install.sh | bash
+
+# Login (opens a device flow link)
+stripe login
+```
+
+---
+
+## 2) Start a live listener that forwards to your webhook route
+
+Replace `<YOUR-CODESPACES-URL>` with your actual public URL.
+
+```bash
+stripe listen --forward-to https://3000-<id>-<org>.githubpreview.dev/api/stripe/webhook
+```
+
+You’ll see output like:
+
+```
+Ready! Your webhook signing secret is whsec_12345...
+```
+
+**Copy the `whsec_...` value**—that’s your **`STRIPE_WEBHOOK_SECRET`**.
+
+---
+
+## 3) Set env vars in Codespaces
+
+Either set **Codespaces Secrets** or use `.env.local` while developing:
+
+**.env.local**
+
+```env
+STRIPE_SECRET_KEY=sk_test_...              # from Stripe Dashboard
+STRIPE_PUBLISHABLE_KEY=pk_test_...         # optional if you use it on client
+STRIPE_WEBHOOK_SECRET=whsec_...            # from `stripe listen` output
+APP_BASE_URL=https://3000-<id>-<org>.githubpreview.dev
+STRIPE_CURRENCY=usd
+STRIPE_UNIT_AMOUNT=50000                   # $500 in cents
+ADMIN_EXPORT_KEY=devkey123
+DATABASE_URL=file:./dev.db
+```
+
+Restart dev server after editing env:
+
+```bash
+npm run dev
+```
+
+---
+
+## 4) Webhook route (reference implementation)
+
+Make sure your route verifies the signature using the **raw body**. This version is safe for Next 14 App Router.
+
+`src/app/api/stripe/webhook/route.ts`
+
+```ts
+export const runtime = "nodejs"; // Stripe SDK requires Node
+export const dynamic = "force-dynamic";
+
+import { NextRequest, NextResponse } from "next/server";
+import Stripe from "stripe";
+import { db } from "@/lib/db";
+import { createRepositories } from "@/lib/repositories";
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: "2024-06-20" });
+
+export async function POST(req: NextRequest) {
+  const sig = req.headers.get("stripe-signature");
+  if (!sig || !process.env.STRIPE_WEBHOOK_SECRET) {
+    return NextResponse.json({ error: "Missing signature or secret" }, { status: 400 });
+  }
+
+  let event: Stripe.Event;
+  try {
+    // IMPORTANT: use raw text, not JSON
+    const raw = await req.text();
+    event = stripe.webhooks.constructEvent(raw, sig, process.env.STRIPE_WEBHOOK_SECRET);
+  } catch (err: any) {
+    console.error("[webhook] signature verify failed:", err?.message || err);
+    return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
+  }
+
+  try {
+    const repos = createRepositories(db);
+
+    switch (event.type) {
+      case "checkout.session.completed": {
+        const session = event.data.object as Stripe.Checkout.Session;
+        const sessionId = session.id;
+        const paymentIntentId = typeof session.payment_intent === "string"
+          ? session.payment_intent
+          : session.payment_intent?.id ?? null;
+        // mark attendee as PAID by session id (your repo function)
+        await repos.attendees.markPaidBySession(sessionId, paymentIntentId);
+        break;
+      }
+      // Add more events if needed (payment_intent.succeeded, etc.)
+      default:
+        // no-op
+        break;
+    }
+
+    return NextResponse.json({ received: true }, { status: 200 });
+  } catch (err: any) {
+    console.error("[webhook] handler error:", err?.message || err);
+    return NextResponse.json({ error: "Server error" }, { status: 500 });
+  }
+}
+```
+
+> Notes
+> • `req.text()` is required so Stripe signature validation works.
+> • `export const runtime = "nodejs";` is mandatory—Stripe SDK won’t run on Edge.
+> • Your repo helpers like `repos.attendees.markPaidBySession` should already exist.
+
+---
+
+## 5) Trigger test events from Stripe CLI
+
+With your listener running, open a **second** terminal and send some test events:
+
+```bash
+# Simulate a successful checkout flow
+stripe trigger checkout.session.completed
+```
+
+You should see the event hit your server in the listener terminal and your app logs show the webhook handled.
+
+You can also open **Stripe Dashboard → Developers → Events** to confirm the webhook delivery and your 2xx response.
+
+---
+
+## 6) Test a full end-to-end checkout (optional)
+
+* In your UI, click “Proceed to Payment”.
+* Pay with a test card (e.g., `4242 4242 4242 4242`, any future expiry, any CVC).
+* After redirect back to your **Codespaces** success page, your CLI will forward the webhook to `/api/stripe/webhook`.
+* Confirm your DB status flips to `PAID`.
+
+---
+
+## 7) Common gotchas & fixes
+
+* **Wrong APP\_BASE\_URL** → Redirects to `localhost`. Fix `APP_BASE_URL` to your public Codespaces URL.
+* **Missing STRIPE\_WEBHOOK\_SECRET** → Signature validation fails (400). Use the secret printed by `stripe listen`.
+* **Port not public** → CLI can still deliver to your URL, but your browser might not reach the app. Set port 3000 to **Public**.
+* **Edge runtime crash** → Ensure `export const runtime = "nodejs";` at top of webhook & any Prisma/Stripe routes.
+* **Database errors** → If using SQLite in dev (`file:./dev.db`), it lives in your workspace. Run `npx prisma migrate dev` once.
+
+---
+
+## 8) Production (Railway) webhook setup
+
+* Set a live (or test) webhook endpoint in the Stripe Dashboard pointing to:
+
+  ```
+  https://icadai.design/api/stripe/webhook
+  ```
+* Stripe will give you a **production** `whsec_...` secret. Put it in **Railway → Variables** as `STRIPE_WEBHOOK_SECRET`.
+* Keep `runtime="nodejs"` in the production webhook route too.
+
+---
+
+That’s it—this setup mirrors real Stripe behavior in Codespaces and guarantees your webhook verification is correct before you push to Railway. If you want, I can add a short **admin /webhook-test** page that displays the last event received to make manual verification trivial.
