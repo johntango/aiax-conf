@@ -6,7 +6,6 @@ import { createRepositories } from "@/lib/repositories";
 import { db } from "@/lib/db";
 
 const { interestSchema } = createValidators();
-
 export async function POST(req: NextRequest) {
   try {
     // Tolerate empty/invalid JSON
