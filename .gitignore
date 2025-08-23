@@ -22,9 +22,6 @@ dev.db-journal
 *.sqlite
 *.sqlite-journal
 
-# Prisma
-prisma/migrations/
-
 # Logs
 logs
 *.log
