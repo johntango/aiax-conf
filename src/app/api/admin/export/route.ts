@@ -1,28 +1,59 @@
-import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/db";
-import { createRepositories } from "@/lib/repositories";
-import { toCSV } from "@/lib/csv";
+// src/app/api/admin/export/route.ts
 export const runtime = "nodejs";
 
+import { NextRequest, NextResponse } from "next/server";
+import { db } from "@/lib/db";
+
+function csvEscape(v: any) {
+  const s = v == null ? "" : String(v);
+  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+function toCSV(rows: Record<string, any>[]) {
+  if (!rows.length) return "";
+  const cols = Array.from(new Set(rows.flatMap(r => Object.keys(r))));
+  const header = cols.map(csvEscape).join(",");
+  const lines = rows.map(r => cols.map(c => csvEscape(r[c])).join(","));
+  return [header, ...lines].join("\n");
+}
+
 export async function GET(req: NextRequest) {
-  const url = new URL(req.url);
-  const key = url.searchParams.get("key");
-  if (!key || key !== process.env.ADMIN_EXPORT_KEY) {
+  const key = req.nextUrl.searchParams.get("key");
+  if (!process.env.ADMIN_EXPORT_KEY || key !== process.env.ADMIN_EXPORT_KEY) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  const repos = createRepositories(db);
-  const [interests, attendees] = await Promise.all([
-    repos.interest.listAll(),
-    repos.attendees.listAll()
-  ]);
-  const csv = [
-    "# Interests",
-    toCSV(interests),
-    "\n# Attendees",
-    toCSV(attendees)
-  ].join("\n");
-  return new NextResponse(csv, {
-    status: 200,
-    headers: { "Content-Type": "text/csv; charset=utf-8" }
+
+  // Pull data
+  const interests = await db.interest.findMany({ orderBy: { createdAt: "desc" } });
+  const attendees = await db.attendee.findMany({ orderBy: { createdAt: "desc" } });
+
+  // Shape rows
+  const interestRows = interests.map(i => ({
+    id: i.id, name: i.name, email: i.email,
+    affiliation: i.affiliation ?? "",
+    notes: i.notes ?? "",
+    createdAt: i.createdAt.toISOString(),
+  }));
+  const attendeeRows = attendees.map(a => ({
+    id: a.id, name: a.name, email: a.email,
+    affiliation: a.affiliation ?? "",
+    status: a.status,
+    stripeSessionId: a.stripeSessionId ?? "",
+    stripePaymentIntentId: a.stripePaymentIntentId ?? "",
+    createdAt: a.createdAt.toISOString(),
+  }));
+
+  const out =
+`## Interests
+${toCSV(interestRows)}
+
+## Attendees
+${toCSV(attendeeRows)}
+`;
+
+  return new NextResponse(out, {
+    headers: {
+      "Content-Type": "text/plain; charset=utf-8",
+      "Content-Disposition": `attachment; filename="export-${new Date().toISOString().slice(0,10)}.csv"`
+    }
   });
 }

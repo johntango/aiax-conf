@@ -433,3 +433,4 @@ You can also open **Stripe Dashboard → Developers → Events** to confirm the 
 ---
 
 That’s it—this setup mirrors real Stripe behavior in Codespaces and guarantees your webhook verification is correct before you push to Railway. If you want, I can add a short **admin /webhook-test** page that displays the last event received to make manual verification trivial.
+Checkpoint WorkingRev001-Restore Point
