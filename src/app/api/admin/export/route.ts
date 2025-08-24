@@ -3,6 +3,28 @@ export const runtime = "nodejs";
 
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+export const dynamic = "force-dynamic";
+
+
+function assertAuth(headers: Headers) {
+  const auth = headers.get("authorization") || "";
+  const token = auth.startsWith("Bearer ") ? auth.slice(7) : null;
+  if (!token || token !== process.env.ADMIN_EXPORT_KEY) throw new Error("unauthorized");
+}
+
+export async function HEAD(req: Request) {
+  try {
+    assertAuth(new Headers(req.headers));
+    return new NextResponse(null, { status: 204, headers: { "Cache-Control": "no-store" } });
+  } catch {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+}
+
+// (keep your existing GET handler unchanged)
+
+
+
 
 function csvEscape(v: any) {
   const s = v == null ? "" : String(v);
@@ -43,7 +65,7 @@ export async function GET(req: NextRequest) {
   }));
 
   const out =
-`## Interests
+    `## Interests
 ${toCSV(interestRows)}
 
 ## Attendees
@@ -53,7 +75,7 @@ ${toCSV(attendeeRows)}
   return new NextResponse(out, {
     headers: {
       "Content-Type": "text/plain; charset=utf-8",
-      "Content-Disposition": `attachment; filename="export-${new Date().toISOString().slice(0,10)}.csv"`
+      "Content-Disposition": `attachment; filename="export-${new Date().toISOString().slice(0, 10)}.csv"`
     }
   });
 }
