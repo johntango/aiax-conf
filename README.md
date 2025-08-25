@@ -1,15 +1,18 @@
-# AI & AX Design Conference Web App 
+# AI & AX Design Conference Web App
+
 Working with Stripe Test and Prisma Studio for viewing DB
 
 If you need a CNAME configured for your domain, you are welcome to set an ALIAS for @ instead of the current CNAME record. Please change the CNAME record to ALIAS.
+
 - Having logged into the Namecheap account, go to your Domain List -> click "Manage" next to the bathparade.com domain -> the "Advanced DNS" tab -> the "Host Records" section.
 
 - Then click on your CNAME record with the host name "@"and change it to following :
 
 Type: ALIAS Record | Host: @ | Value:scji18iq.up.railway.app. | TTL: 1/5 minutes
 
-Use prisma studio to view data
-npx prisma studio
+Use prisma studio to view data. make sure prisma and @Client.prisma are same version No.s
+
+DATABASE_URL="file:./sqlite01.db" npx prisma studio
 
 Here’s your **updated `README.md`** with example **Stripe configuration values** for both **Codespaces** (development) and **Railway** (production):
 
@@ -23,16 +26,16 @@ Here’s your **updated `README.md`** with example **Stripe configuration values
 
 ## **Table of Contents**
 
-* [Overview](#overview)
-* [Tech Stack](#tech-stack)
-* [Project Layout](#project-layout)
-* [Getting Started](#getting-started)
-* [Environment Variables](#environment-variables)
-* [Development](#development)
-* [Deployment on Railway](#deployment-on-railway)
-* [Database Management](#database-management)
-* [Backup Strategy](#backup-strategy)
-* [License](#license)
+- [Overview](#overview)
+- [Tech Stack](#tech-stack)
+- [Project Layout](#project-layout)
+- [Getting Started](#getting-started)
+- [Environment Variables](#environment-variables)
+- [Development](#development)
+- [Deployment on Railway](#deployment-on-railway)
+- [Database Management](#database-management)
+- [Backup Strategy](#backup-strategy)
+- [License](#license)
 
 ---
 
@@ -40,20 +43,20 @@ Here’s your **updated `README.md`** with example **Stripe configuration values
 
 This project provides a responsive, full-stack website for managing conference activities, including:
 
-* User registration (interest & paid)
-* Secure payment processing via **Stripe**
-* Admin capabilities for data management and exports
-* Deployed for **100+ concurrent users**
+- User registration (interest & paid)
+- Secure payment processing via **Stripe**
+- Admin capabilities for data management and exports
+- Deployed for **100+ concurrent users**
 
 ---
 
 ## **Tech Stack**
 
-* **Frontend**: [Next.js 14](https://nextjs.org/) with [React 18](https://react.dev/)
-* **Database**: [SQLite3](https://www.sqlite.org/index.html) with [Prisma ORM](https://www.prisma.io/)
-* **Styling**: [Bootstrap 5](https://getbootstrap.com/)
-* **Hosting**: [Railway](https://railway.app/)
-* **Payments**: [Stripe](https://stripe.com/)
+- **Frontend**: [Next.js 14](https://nextjs.org/) with [React 18](https://react.dev/)
+- **Database**: [SQLite3](https://www.sqlite.org/index.html) with [Prisma ORM](https://www.prisma.io/)
+- **Styling**: [Bootstrap 5](https://getbootstrap.com/)
+- **Hosting**: [Railway](https://railway.app/)
+- **Payments**: [Stripe](https://stripe.com/)
 
 ---
 
@@ -123,9 +126,9 @@ cp .env.example .env.local
 
 **Important:**
 
-* Codespaces URLs look like `https://<port>-<codespace-id>.githubpreview.dev`.
+- Codespaces URLs look like `https://<port>-<codespace-id>.githubpreview.dev`.
   Use that full URL as `APP_BASE_URL` in `.env.local`.
-* On Railway, this should be your production domain such as `https://icadai.design`.
+- On Railway, this should be your production domain such as `https://icadai.design`.
 
 ---
 
@@ -151,13 +154,15 @@ http://localhost:3000
 2. **Set environment variables** in the Railway Dashboard (use production keys).
 3. **Enable a persistent volume** for SQLite:
 
-   * Volume path: `/data`
+   - Volume path: `/data`
+
 4. **Deploy**
 
    ```bash
    npm run build
    npm start
    ```
+
 5. Check logs in Railway Dashboard for errors:
 
    ```
@@ -249,6 +254,7 @@ jobs:
 Proprietary — for internal use by the **AI and AX Design Conference** organizing team.
 
 ---
+
 Awesome—here’s a tight, copy-pasteable guide to test **Stripe webhooks in GitHub Codespaces** with your Next.js (App Router) app.
 
 ---
@@ -257,9 +263,9 @@ Awesome—here’s a tight, copy-pasteable guide to test **Stripe webhooks in Gi
 
 ## 0) Prereqs (once)
 
-* Make sure your webhook route exists at: `src/app/api/stripe/webhook/route.ts` and runs on **Node** runtime.
-* Your Codespace dev server is running on **port 3000** and **publicly accessible** (Ports tab → 3000 → Visibility = Public).
-* `APP_BASE_URL` in your `.env.local` (or Codespaces secrets) is your **public Codespaces URL** (e.g., `https://3000-<id>-<org>.githubpreview.dev`).
+- Make sure your webhook route exists at: `src/app/api/stripe/webhook/route.ts` and runs on **Node** runtime.
+- Your Codespace dev server is running on **port 3000** and **publicly accessible** (Ports tab → 3000 → Visibility = Public).
+- `APP_BASE_URL` in your `.env.local` (or Codespaces secrets) is your **public Codespaces URL** (e.g., `https://3000-<id>-<org>.githubpreview.dev`).
 
 ---
 
@@ -333,19 +339,28 @@ import Stripe from "stripe";
 import { db } from "@/lib/db";
 import { createRepositories } from "@/lib/repositories";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: "2024-06-20" });
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+  apiVersion: "2024-06-20",
+});
 
 export async function POST(req: NextRequest) {
   const sig = req.headers.get("stripe-signature");
   if (!sig || !process.env.STRIPE_WEBHOOK_SECRET) {
-    return NextResponse.json({ error: "Missing signature or secret" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Missing signature or secret" },
+      { status: 400 }
+    );
   }
 
   let event: Stripe.Event;
   try {
     // IMPORTANT: use raw text, not JSON
     const raw = await req.text();
-    event = stripe.webhooks.constructEvent(raw, sig, process.env.STRIPE_WEBHOOK_SECRET);
+    event = stripe.webhooks.constructEvent(
+      raw,
+      sig,
+      process.env.STRIPE_WEBHOOK_SECRET
+    );
   } catch (err: any) {
     console.error("[webhook] signature verify failed:", err?.message || err);
     return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
@@ -358,9 +373,10 @@ export async function POST(req: NextRequest) {
       case "checkout.session.completed": {
         const session = event.data.object as Stripe.Checkout.Session;
         const sessionId = session.id;
-        const paymentIntentId = typeof session.payment_intent === "string"
-          ? session.payment_intent
-          : session.payment_intent?.id ?? null;
+        const paymentIntentId =
+          typeof session.payment_intent === "string"
+            ? session.payment_intent
+            : session.payment_intent?.id ?? null;
         // mark attendee as PAID by session id (your repo function)
         await repos.attendees.markPaidBySession(sessionId, paymentIntentId);
         break;
@@ -403,32 +419,33 @@ You can also open **Stripe Dashboard → Developers → Events** to confirm the 
 
 ## 6) Test a full end-to-end checkout (optional)
 
-* In your UI, click “Proceed to Payment”.
-* Pay with a test card (e.g., `4242 4242 4242 4242`, any future expiry, any CVC).
-* After redirect back to your **Codespaces** success page, your CLI will forward the webhook to `/api/stripe/webhook`.
-* Confirm your DB status flips to `PAID`.
+- In your UI, click “Proceed to Payment”.
+- Pay with a test card (e.g., `4242 4242 4242 4242`, any future expiry, any CVC).
+- After redirect back to your **Codespaces** success page, your CLI will forward the webhook to `/api/stripe/webhook`.
+- Confirm your DB status flips to `PAID`.
 
 ---
 
 ## 7) Common gotchas & fixes
 
-* **Wrong APP\_BASE\_URL** → Redirects to `localhost`. Fix `APP_BASE_URL` to your public Codespaces URL.
-* **Missing STRIPE\_WEBHOOK\_SECRET** → Signature validation fails (400). Use the secret printed by `stripe listen`.
-* **Port not public** → CLI can still deliver to your URL, but your browser might not reach the app. Set port 3000 to **Public**.
-* **Edge runtime crash** → Ensure `export const runtime = "nodejs";` at top of webhook & any Prisma/Stripe routes.
-* **Database errors** → If using SQLite in dev (`file:./dev.db`), it lives in your workspace. Run `npx prisma migrate dev` once.
+- **Wrong APP_BASE_URL** → Redirects to `localhost`. Fix `APP_BASE_URL` to your public Codespaces URL.
+- **Missing STRIPE_WEBHOOK_SECRET** → Signature validation fails (400). Use the secret printed by `stripe listen`.
+- **Port not public** → CLI can still deliver to your URL, but your browser might not reach the app. Set port 3000 to **Public**.
+- **Edge runtime crash** → Ensure `export const runtime = "nodejs";` at top of webhook & any Prisma/Stripe routes.
+- **Database errors** → If using SQLite in dev (`file:./dev.db`), it lives in your workspace. Run `npx prisma migrate dev` once.
 
 ---
 
 ## 8) Production (Railway) webhook setup
 
-* Set a live (or test) webhook endpoint in the Stripe Dashboard pointing to:
+- Set a live (or test) webhook endpoint in the Stripe Dashboard pointing to:
 
   ```
   https://icadai.design/api/stripe/webhook
   ```
-* Stripe will give you a **production** `whsec_...` secret. Put it in **Railway → Variables** as `STRIPE_WEBHOOK_SECRET`.
-* Keep `runtime="nodejs"` in the production webhook route too.
+
+- Stripe will give you a **production** `whsec_...` secret. Put it in **Railway → Variables** as `STRIPE_WEBHOOK_SECRET`.
+- Keep `runtime="nodejs"` in the production webhook route too.
 
 ---
 
