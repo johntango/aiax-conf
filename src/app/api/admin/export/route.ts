@@ -1,81 +1,157 @@
 // src/app/api/admin/export/route.ts
-export const runtime = "nodejs";
-
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { createHash, timingSafeEqual } from "crypto";
+
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+/* ---------- unified admin key handling ---------- */
+function getConfiguredKeys(): string[] {
+  const candidates = [
+    process.env.ADMIN_EXPORT_KEY,   // canonical
+    process.env.ADMIN_EXPORTS_KEY,  // legacy
+    process.env.ADMIIN_EXPORTS_KEY, // common typo
+  ].filter((v): v is string => !!v);
 
-function assertAuth(headers: Headers) {
-  const auth = headers.get("authorization") || "";
-  const token = auth.startsWith("Bearer ") ? auth.slice(7) : null;
-  if (!token || token !== process.env.ADMIN_EXPORT_KEY) throw new Error("unauthorized");
+  return candidates
+    .flatMap(v => v.split(","))
+    .map(s => s.trim())
+    .filter(Boolean);
 }
 
-export async function HEAD(req: Request) {
-  try {
-    assertAuth(new Headers(req.headers));
-    return new NextResponse(null, { status: 204, headers: { "Cache-Control": "no-store" } });
-  } catch {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+const KEY_HASHES = getConfiguredKeys().map(k =>
+  createHash("sha256").update(k, "utf8").digest()
+);
+
+function verifyToken(token: string | null): boolean {
+  if (!token || KEY_HASHES.length === 0) return false;
+  const probe = createHash("sha256").update(token, "utf8").digest();
+  return KEY_HASHES.some(h => h.length === probe.length && timingSafeEqual(h, probe));
 }
 
-// (keep your existing GET handler unchanged)
+function extractToken(req: Request): string | null {
+  const h = new Headers(req.headers);
+  const auth = h.get("authorization") || "";
+  if (auth.startsWith("Bearer ")) return auth.slice(7);
+  // Optional legacy: ?key=
+  try { return new URL(req.url).searchParams.get("key"); } catch { return null; }
+}
 
+function assertAdminAuth(req: Request) {
+  if (KEY_HASHES.length === 0) throw new Error("admin_key_not_configured");
+  const token = extractToken(req);
+  if (!verifyToken(token)) throw new Error("unauthorized");
+}
 
-
-
-function csvEscape(v: any) {
-  const s = v == null ? "" : String(v);
+/* ---------------- CSV helpers ----------------- */
+function csvEscape(v: unknown): string {
+  if (v === null || v === undefined) return "";
+  const s = String(v);
   return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
-function toCSV(rows: Record<string, any>[]) {
-  if (!rows.length) return "";
-  const cols = Array.from(new Set(rows.flatMap(r => Object.keys(r))));
-  const header = cols.map(csvEscape).join(",");
-  const lines = rows.map(r => cols.map(c => csvEscape(r[c])).join(","));
-  return [header, ...lines].join("\n");
+
+function toISO(d: unknown): string {
+  if (!d) return "";
+  try {
+    if (d instanceof Date) return d.toISOString();
+    const maybe = new Date(d as any);
+    return isNaN(+maybe) ? "" : maybe.toISOString();
+  } catch { return ""; }
 }
 
-export async function GET(req: NextRequest) {
-  const key = req.nextUrl.searchParams.get("key");
-  if (!process.env.ADMIN_EXPORT_KEY || key !== process.env.ADMIN_EXPORT_KEY) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+/* ---------------- Handlers -------------------- */
+export async function HEAD(req: Request) {
+  try {
+    assertAdminAuth(req);
+    return new NextResponse(null, { status: 204, headers: { "Cache-Control": "no-store" } });
+  } catch (e: any) {
+    const status = e?.message === "admin_key_not_configured" ? 500 : 401;
+    return NextResponse.json({ error: e?.message ?? "Unauthorized" }, { status });
   }
+}
 
-  // Pull data
-  const interests = await db.interest.findMany({ orderBy: { createdAt: "desc" } });
-  const attendees = await db.attendee.findMany({ orderBy: { createdAt: "desc" } });
+export async function GET(req: Request) {
+  try {
+    assertAdminAuth(req);
 
-  // Shape rows
-  const interestRows = interests.map(i => ({
-    id: i.id, name: i.name, email: i.email,
-    affiliation: i.affiliation ?? "",
-    notes: i.notes ?? "",
-    createdAt: i.createdAt.toISOString(),
-  }));
-  const attendeeRows = attendees.map(a => ({
-    id: a.id, name: a.name, email: a.email,
-    affiliation: a.affiliation ?? "",
-    status: a.status,
-    stripeSessionId: a.stripeSessionId ?? "",
-    stripePaymentIntentId: a.stripePaymentIntentId ?? "",
-    createdAt: a.createdAt.toISOString(),
-  }));
+    // Fetch rows (no schema assumptions beyond table existence)
+    const [interests, attendees] = await Promise.all([
+      db.interest.findMany(),
+      db.attendee.findMany(),
+    ]);
 
-  const out =
-    `## Interests
-${toCSV(interestRows)}
+    // Stable, superset header. Unknown fields are populated via runtime lookups.
+    const header = [
+      "type",
+      "id",
+      "email",
+      "fullName",     // optional (fallbacks to name/first+last)
+      "affiliation",  // optional (fallbacks to organization)
+      "ticketType",
+      "amountCents",
+      "currency",
+      "paidAt",
+      "createdAt",
+    ];
 
-## Attendees
-${toCSV(attendeeRows)}
-`;
+    const interestRows = interests.map((i) => {
+      const anyI = i as any;
+      const name =
+        anyI.fullName ??
+        anyI.name ??
+        (anyI.firstName ? `${anyI.firstName} ${anyI.lastName ?? ""}`.trim() : "");
+      const affiliation = anyI.affiliation ?? anyI.organization ?? "";
 
-  return new NextResponse(out, {
-    headers: {
-      "Content-Type": "text/plain; charset=utf-8",
-      "Content-Disposition": `attachment; filename="export-${new Date().toISOString().slice(0, 10)}.csv"`
-    }
-  });
+      const row = [
+        "interest",
+        anyI.id,
+        anyI.email,
+        name,
+        affiliation,
+        "", // ticketType
+        "", // amountCents
+        "", // currency
+        "", // paidAt
+        toISO(anyI.createdAt),
+      ];
+      return row.map(csvEscape).join(",");
+    });
+
+    const attendeeRows = attendees.map((a) => {
+      const anyA = a as any;
+      const name =
+        anyA.fullName ??
+        anyA.name ??
+        (anyA.firstName ? `${anyA.firstName} ${anyA.lastName ?? ""}`.trim() : "");
+      const affiliation = anyA.affiliation ?? anyA.organization ?? "";
+
+      const row = [
+        "attendee",
+        anyA.id,
+        anyA.email,
+        name,
+        affiliation,
+        anyA.ticketType ?? "",
+        anyA.amountCents ?? "",
+        anyA.currency ?? "",
+        toISO(anyA.paidAt),
+        toISO(anyA.createdAt),
+      ];
+      return row.map(csvEscape).join(",");
+    });
+
+    const body = [header.join(","), ...interestRows, ...attendeeRows].join("\n");
+
+    return new NextResponse(body, {
+      headers: {
+        "Content-Type": "text/csv; charset=utf-8",
+        "Content-Disposition": `attachment; filename="export-${new Date().toISOString().slice(0, 10)}.csv"`,
+        "Cache-Control": "no-store",
+      },
+    });
+  } catch (e: any) {
+    const status = e?.message === "admin_key_not_configured" ? 500 : 401;
+    return NextResponse.json({ error: e?.message ?? "Unauthorized" }, { status });
+  }
 }

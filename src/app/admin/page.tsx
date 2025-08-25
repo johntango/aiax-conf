@@ -1,7 +1,10 @@
 // src/app/admin/page.tsx
 "use client";
+import os from "os";
+import React from "react";
 
 import { useEffect, useState } from "react";
+import { ostring } from "zod";
 
 type StripeStatus = {
     secretKeyConfigured: boolean;
@@ -23,7 +26,7 @@ export default function AdminPage() {
 
     // Optionally restore from localStorage
     useEffect(() => {
-        const stored = localStorage.getItem("adminKey");
+        const stored = process.env.ADMIN_EXPORTS_KEY;
         if (stored) setKey(stored);
     }, []);
 
@@ -150,7 +153,7 @@ export default function AdminPage() {
                                     name="password"
                                     type="password"
                                     className="form-control"
-                                    placeholder="Enter Admin Key (ADMIN_EXPORT_KEY)"
+                                    placeholder="Enter Admin Key (ADMIN_EXPORTS_KEY)"
                                     value={key}
                                     onChange={(e) => setKey(e.target.value)}
                                     autoComplete="current-password"
@@ -217,7 +220,7 @@ export default function AdminPage() {
                                         </button>
                                     </div>
                                     <small className="text-muted d-block mt-2">
-                                        Sends <code>Authorization: Bearer &lt;ADMIN_EXPORT_KEY&gt;</code>.
+                                        Sends <code>Authorization: Bearer &lt;ADMIN_EXPORTS_KEY&gt;</code>.
                                     </small>
                                 </div>
                             </div>
