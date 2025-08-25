@@ -1,13 +1,14 @@
+// src/components/SiteNav.tsx
 "use client";
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState, useCallback } from "react";
-import type { Route } from "next"; // <-- typed routes
+import { useState, useCallback, useEffect } from "react";
+import type { Route } from "next";
 
 type Item = { href: Route; label: string };
 
-// Keep literals (no widening to string) and check they are valid routes at build time.
+// Typed routes; compile-time check that paths exist.
 const items = [
   { href: "/", label: "Home" },
   { href: "/committee", label: "Committee" },
@@ -19,16 +20,23 @@ const items = [
 ] as const satisfies readonly Item[];
 
 export default function SiteNav() {
-  const pathname = usePathname() || "/";
+  const pathname = usePathname() || ("/" as Route);
   const [open, setOpen] = useState(false);
+  const [pendingHref, setPendingHref] = useState<Route | null>(null);
+
   const toggle = useCallback(() => setOpen((v) => !v), []);
   const close = useCallback(() => setOpen(false), []);
+
+  // Clear "pending" highlight after the route changes.
+  useEffect(() => {
+    setPendingHref(null);
+  }, [pathname]);
 
   return (
     <nav className="navbar navbar-expand-lg bg-body-tertiary border-bottom">
       <div className="container">
         <Link href={"/" as Route} className="navbar-brand" onClick={close}>
-          AI & AX Design Conference
+          AI &amp; AX Design Conference
         </Link>
 
         <button
@@ -43,23 +51,29 @@ export default function SiteNav() {
         </button>
 
         <div id="mainNavbar" className={`collapse navbar-collapse${open ? " show" : ""}`}>
-          <ul className="navbar-nav ms-auto mb-2 mb-lg-0">
+          {/* Button group styled nav */}
+          <div className="ms-auto my-2 my-lg-0 d-flex flex-wrap gap-2" role="group" aria-label="Primary navigation">
             {items.map(({ href, label }) => {
-              const active = pathname === href;
+              const isActive = pathname === href || pendingHref === href;
+              const cls = isActive ? "btn btn-primary" : "btn btn-outline-primary";
               return (
-                <li className="nav-item" key={href}>
-                  <Link
-                    href={href}
-                    className={`nav-link${active ? " active" : ""}`}
-                    aria-current={active ? "page" : undefined}
-                    onClick={close}
-                  >
-                    {label}
-                  </Link>
-                </li>
+                <Link
+                  key={href}
+                  href={href}
+                  className={cls}
+                  role="button"
+                  aria-current={isActive ? "page" : undefined}
+                  aria-pressed={isActive ? true : undefined}
+                  onClick={() => {
+                    setPendingHref(href);
+                    close();
+                  }}
+                >
+                  {label}
+                </Link>
               );
             })}
-          </ul>
+          </div>
         </div>
       </div>
     </nav>
