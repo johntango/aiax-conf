@@ -26,5 +26,3 @@ model Attendee {
   stripeSessionId        String?  @unique
   stripePaymentIntentId  String?
 }
-
-
