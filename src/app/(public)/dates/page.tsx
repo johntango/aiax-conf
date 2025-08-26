@@ -6,7 +6,7 @@ export default function DatesPage() {
       <ul>
         <li>Submission deadline: TBA</li>
         <li>Notification: TBA</li>
-        <li>Conference: June 24–25, 2025</li>
+        <li>Conference: June 24–25, 2026</li>
       </ul>
     </>
   );

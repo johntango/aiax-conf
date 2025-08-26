@@ -5,7 +5,7 @@
     "@prisma/client": "^6.14.0",
     "prisma": "^6.14.0",
     "bootstrap": "5.3.3",
-    "next": "14.2.5",
+    "next": "^15.5.0",
     "os": "^0.1.2",
     "react": "18.3.1",
     "react-dom": "18.3.1",
@@ -36,6 +36,8 @@
   "homepage": "https://github.com/johntango/aiax-conf#readme",
   "devDependencies": {
     "@types/react": "19.1.11",
+    "eslint": "8.57.1",
+    "eslint-config-next": "15.5.0",
     "prisma": "^6.14.0",
     "typescript": "^5.9.2"
   }

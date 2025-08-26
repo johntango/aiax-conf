@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import Link from "next/link";
 
 export default function RegisterInterestPage() {
   const [loading, setLoading] = useState(false);
@@ -47,7 +48,7 @@ export default function RegisterInterestPage() {
       <div className="container">
         <h1 className="h1">Thank you</h1>
         <p>Your interest has been recorded.</p>
-        <a href="/"><button>Back to Home</button></a>
+        <Link href="/"><button>Back to Home</button></Link>
       </div>
     );
   }

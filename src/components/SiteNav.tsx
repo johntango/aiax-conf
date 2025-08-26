@@ -17,6 +17,7 @@ const items = [
   { href: "/program", label: "Program" },
   { href: "/visa", label: "Visa" },
   { href: "/dates", label: "Dates" },
+   { href: "/register", label: "Register" },
 ] as const satisfies readonly Item[];
 
 export default function SiteNav() {

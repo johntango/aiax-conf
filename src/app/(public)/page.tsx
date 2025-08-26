@@ -27,7 +27,6 @@ export default function Landing() {
 
       <div className="d-flex justify-content-center gap-3 mt-4">
         <a href="/register-interest" className="btn btn-outline-primary btn-lg">Register Interest</a>
-        <a href="/register" className="btn btn-primary btn-lg">Paid Registration ($500)</a>
       </div>
     </div>
   );
