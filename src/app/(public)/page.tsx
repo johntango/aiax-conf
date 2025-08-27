@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 
 export default function Landing() {
   const pathname = usePathname();
-  const title = process.env.NEXT_PUBLIC_SITE_NAME ?? "Axiomatic Design Conference";
+  const title = process.env.NEXT_PUBLIC_SITE_NAME ?? "Principled AI in Design Conference";
   const dates = process.env.NEXT_PUBLIC_EVENT_DATES ?? "June 24–25, 2026";
   const subtitle = process.env.NEXT_PUBLIC_EVENT_SUBTITLE ?? "Sponsored by the International Conference on Axiomatic Design";
 
@@ -14,10 +14,10 @@ export default function Landing() {
     <div className="text-center">
       {/* Splash image */}
       <Image
-        src="/RobotICAD.jpg"
+        src="/Butterfly.webp"
         alt="Conference Splash"
         width={1200}
-        height={400}
+        height={300}
         className="img-fluid rounded mb-4"
       />
 
