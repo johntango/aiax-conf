@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import SiteNav from "@/components/SiteNav";
 
 export const metadata: Metadata = {
-  title: "Principled AI in Design Conference",
+  title: "Principled AI & Design Conference",
   description: "June 24–25, 2026 — International Conference on Axiomatic Design",
 };
 

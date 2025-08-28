@@ -37,7 +37,7 @@ export default function SiteNav() {
     <nav className="navbar navbar-expand-lg bg-body-tertiary border-bottom">
       <div className="container">
         <Link href={"/" as Route} className="navbar-brand" onClick={close}>
-          Principled AI in Axiomatic Design
+          Principled AI & Axiomatic Design
         </Link>
 
         <button

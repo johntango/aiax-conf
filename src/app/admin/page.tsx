@@ -1,100 +1,85 @@
 // src/app/admin/page.tsx
 "use client";
-import os from "os";
-import React from "react";
 
-import { useEffect, useState } from "react";
-import { ostring } from "zod";
+import React, { useEffect, useState } from "react";
 
 type StripeStatus = {
-    secretKeyConfigured: boolean;
-    publishableKeyConfigured: boolean;
-    webhookSecretConfigured: boolean;
+  secretKeyConfigured: boolean;
+  publishableKeyConfigured: boolean;
+  webhookSecretConfigured: boolean;
 };
 
-// Build headers only when a key exists; otherwise omit the headers field.
+
 function buildAuthHeaders(key: string): HeadersInit | undefined {
-    return key ? { Authorization: `Bearer ${key}` } : undefined;
+  return key ? { Authorization: `Bearer ${key}` } : undefined;
 }
 
 export default function AdminPage() {
-    const [key, setKey] = useState("");
-    const [authed, setAuthed] = useState<boolean | null>(null);
-    const [checking, setChecking] = useState(false);
-    const [stripe, setStripe] = useState<StripeStatus | null>(null);
-    const [health, setHealth] = useState<string>("");
+  const [key, setKey] = useState("");
+  const [authed, setAuthed] = useState<boolean | null>(null);
+  const [checking, setChecking] = useState(false);
+  const [stripe, setStripe] = useState<StripeStatus | null>(null);
+  const [health, setHealth] = useState<string>("");
 
-    // Optionally restore from localStorage
-    useEffect(() => {
-        const stored = process.env.ADMIN_EXPORTS_KEY;
-        if (stored) setKey(stored);
-    }, []);
+  // ✅ Restore key from localStorage (never from process.env on the client)
+  useEffect(() => {
+    const stored = localStorage.getItem("adminKey");
+    if (stored) setKey(stored);
+  }, []);
 
-    async function checkAuth() {
-        if (!key) {
-            setAuthed(false);
-            return;
-        }
-        setChecking(true);
-        try {
-            const res = await fetch("/api/admin/auth/verify", {
-                method: "HEAD",
-                headers: buildAuthHeaders(key),
-            });
-            setAuthed(res.ok);
-            if (res.ok) {
-                localStorage.setItem("adminKey", key);
-            }
-        } catch {
-            setAuthed(false);
-        } finally {
-            setChecking(false);
-        }
+  async function checkAuth() {
+    if (!key) { setAuthed(false); return; }
+    setChecking(true);
+    try {
+      const res = await fetch("/api/admin/auth/verify", {
+        method: "HEAD",
+        headers: buildAuthHeaders(key),
+      });
+      setAuthed(res.ok);
+      if (res.ok) localStorage.setItem("adminKey", key);
+    } catch {
+      setAuthed(false);
+    } finally {
+      setChecking(false);
     }
+}
 
-    function handleUnlock(e: React.FormEvent<HTMLFormElement>) {
-        e.preventDefault();
-        checkAuth();
+  function handleUnlock(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    checkAuth();
+  }
+
+  async function downloadCSV() {
+    const res = await fetch("/api/admin/export", { headers: buildAuthHeaders(key) });
+    if (!res.ok) {
+      const msg = await res.text().catch(() => "");
+      alert(`Export failed: ${res.status} ${res.statusText}${msg ? `\n${msg}` : ""}`);
+      return;
     }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = Object.assign(document.createElement("a"), {
+      href: url,
+      download: `export-${new Date().toISOString().slice(0, 10)}.csv`,
+    });
+    document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+  }
 
-    async function downloadCSV() {
-        const res = await fetch("/api/admin/export", {
-            headers: buildAuthHeaders(key),
-        });
-        if (!res.ok) {
-            alert("Export failed (unauthorized or server error).");
-            return;
-        }
-        const blob = await res.blob();
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `export-${new Date().toISOString().slice(0, 10)}.csv`;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        URL.revokeObjectURL(url);
+  async function downloadSQLite() {
+    const res = await fetch("/api/admin/backup/sqlite", { headers: buildAuthHeaders(key) });
+    if (!res.ok) {
+      const msg = await res.text().catch(() => "");
+      alert(`Backup failed: ${res.status} ${res.statusText}${msg ? `\n${msg}` : ""}`);
+      return;
     }
-
-    async function downloadSQLite() {
-        const res = await fetch("/api/admin/backup/sqlite", {
-            headers: buildAuthHeaders(key),
-        });
-        if (!res.ok) {
-            alert("Backup failed (unauthorized or server error).");
-            return;
-        }
-        const blob = await res.blob();
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `sqlite-${new Date().toISOString().slice(0, 10)}.db`;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        URL.revokeObjectURL(url);
-    }
-
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = Object.assign(document.createElement("a"), {
+      href: url,
+      download: `sqlite-${new Date().toISOString().slice(0, 10)}.db`,
+    });
+    document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+  }
     async function checkStripeStatus() {
         const res = await fetch("/api/admin/stripe/status", {
             headers: buildAuthHeaders(key),
